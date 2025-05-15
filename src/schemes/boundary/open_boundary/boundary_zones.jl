@@ -92,13 +92,13 @@ struct InFlow{NDIMS, IC, S, ZO, ZW, FD}
         if isnothing(initial_condition) && isnothing(extrude_geometry)
             initial_condition = TrixiParticles.extrude_geometry(plane; particle_spacing,
                                                                 density,
-                                                                direction=-flow_direction_,
+                                                                direction=(-flow_direction_),
                                                                 n_extrude=open_boundary_layers)
         elseif !isnothing(extrude_geometry)
             initial_condition = TrixiParticles.extrude_geometry(extrude_geometry;
                                                                 particle_spacing,
                                                                 density,
-                                                                direction=-flow_direction_,
+                                                                direction=(-flow_direction_),
                                                                 n_extrude=open_boundary_layers)
         end
 

@@ -44,7 +44,9 @@
                 outflow
             ]
 
-            @testset "`$(nameof(typeof(boundary_zone)))`" for boundary_zone in boundary_zones
+            @testset "`$(nameof(typeof(boundary_zone)))`" for boundary_zone in
+                                                              boundary_zones
+
                 sign_ = (boundary_zone isa InFlow) ? 1 : -1
                 fluid = extrude_geometry(plane_points; particle_spacing, n_extrude=4,
                                          density, pressure,

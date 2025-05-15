@@ -30,7 +30,9 @@
                     outflow
                 ]
 
-                @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in boundary_zones
+                @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in
+                                                                             boundary_zones
+
                     zone_width = open_boundary_layers *
                                  boundary_zone.initial_condition.particle_spacing
                     sign_ = (boundary_zone isa InFlow) ? -1 : 1
@@ -90,7 +92,9 @@
                     outflow
                 ]
 
-                @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in boundary_zones
+                @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in
+                                                                             boundary_zones
+
                     zone_width = open_boundary_layers *
                                  boundary_zone.initial_condition.particle_spacing
                     sign_ = (boundary_zone isa InFlow) ? -1 : 1
@@ -125,7 +129,9 @@
             outflow
         ]
 
-        @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in boundary_zones
+        @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in
+                                                                     boundary_zones
+
             perturb_ = boundary_zone isa InFlow ? sqrt(eps()) : -sqrt(eps())
 
             point1 = plane_points[1]
@@ -165,7 +171,9 @@
             outflow
         ]
 
-        @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in boundary_zones
+        @testset verbose=true "$(nameof(typeof(boundary_zone)))" for boundary_zone in
+                                                                     boundary_zones
+
             perturb_ = boundary_zone isa InFlow ? eps() : -eps()
             point4 = boundary_zone.spanning_set[1] + boundary_zone.zone_origin
 

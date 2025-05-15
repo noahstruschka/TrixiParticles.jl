@@ -105,7 +105,7 @@ function compute_and_test_surface_normals(system, semi, ode; NDIMS=2)
     # For the linear arrangement, surface normals may still be zero
     # when we have more neighbors than the threshold.
     @test all(i -> system.cache.neighbor_count[i] >= threshold ||
-                  iszero(system.cache.surface_normal[:, i]), 1:nparticles)
+                   iszero(system.cache.surface_normal[:, i]), 1:nparticles)
 end
 
 @testset "Sphere Surface Normals" begin
@@ -124,12 +124,13 @@ end
     density = sphere_ic.density
 
     # To get somewhat accurate normals we increase the smoothing length unrealistically
-    system, bnd_system, semi, ode = create_fluid_system(coordinates, velocity, mass,
-                                                        density,
-                                                        particle_spacing;
-                                                        NDIMS=NDIMS,
-                                                        smoothing_length=3.0 *
-                                                                         particle_spacing)
+    system, bnd_system, semi,
+    ode = create_fluid_system(coordinates, velocity, mass,
+                              density,
+                              particle_spacing;
+                              NDIMS=NDIMS,
+                              smoothing_length=3.0 *
+                                               particle_spacing)
 
     compute_and_test_surface_normals(system, semi, ode; NDIMS=NDIMS)
 
@@ -190,14 +191,15 @@ end
     density = sphere_ic.density
 
     # To get somewhat accurate normals we increase the smoothing length unrealistically
-    system, bnd_system, semi, ode = create_fluid_system(coordinates, velocity, mass,
-                                                        density,
-                                                        particle_spacing;
-                                                        NDIMS=NDIMS,
-                                                        smoothing_length=3.0 *
-                                                                         particle_spacing,
-                                                        wall=true,
-                                                        walldistance=2.0)
+    system, bnd_system, semi,
+    ode = create_fluid_system(coordinates, velocity, mass,
+                              density,
+                              particle_spacing;
+                              NDIMS=NDIMS,
+                              smoothing_length=3.0 *
+                                               particle_spacing,
+                              wall=true,
+                              walldistance=2.0)
 
     compute_and_test_surface_normals(system, semi, ode; NDIMS=NDIMS)
 

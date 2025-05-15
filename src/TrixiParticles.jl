@@ -55,7 +55,8 @@ include("preprocessing/preprocessing.jl")
 
 export Semidiscretization, semidiscretize, restart_with!
 export InitialCondition
-export ImplicitIncompressibleSPHSystem, WeaklyCompressibleSPHSystem, EntropicallyDampedSPHSystem, TotalLagrangianSPHSystem,
+export ImplicitIncompressibleSPHSystem, WeaklyCompressibleSPHSystem,
+       EntropicallyDampedSPHSystem, TotalLagrangianSPHSystem,
        BoundarySPHSystem, DEMSystem, BoundaryDEMSystem, OpenBoundarySPHSystem, InFlow,
        OutFlow
 export InfoCallback, SolutionSavingCallback, DensityReinitializationCallback,
