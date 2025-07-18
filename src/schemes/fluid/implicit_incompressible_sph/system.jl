@@ -392,7 +392,7 @@ function pressure_solve_iteration(system, avg_density_error, u, u_ode, semi, tim
         sum_dij_pj_ = d_ab * p_b
 
         for i in 1:ndims(system)
-            sum_d_ij_pj[i, particle] += sum_dij_pj_[i]
+            sum_d_ij_pj[i, particle] += sum_dij_pj[i]
         end
     end
 
