@@ -1,4 +1,5 @@
 using TrixiParticles
+using OrdinaryDiffEq
 #using OrdinaryDiffEqLowStorageRK
 
 # ==========================================================================================
@@ -22,7 +23,7 @@ nu = 1 * 1 / Re
 strouhal_number = 0.198 * (1 - 19.7 / Re)
 frequency = strouhal_number * initial_velocity[1] / 1
 
-tspan = (0.0, 10.0)
+tspan = (0.0, 5.0)
 
 fluid_density = 1000.0
 sound_speed = 10initial_velocity[1]
@@ -79,8 +80,8 @@ boundary_system_cylinder = BoundarySPHSystem(hollow_sphere, boundary_model_cylin
 # ==========================================================================================
 # ==== Simulation
 periodic_box = PeriodicBox(min_corner=[0.0, -1.0], max_corner=[65.0, 21.0])
-cell_list = FullGridCellList(min_corner=[0.0, -1.0], max_corner=[65.0, 21.0])
-neighborhood_search = GridNeighborhoodSearch{2}(; periodic_box, cell_list)
+cell_list = FullGridCellList(min_corner=[0.0, -1.0], max_corner=[65.0, 21.0], max_points_per_cell=500)
+neighborhood_search = GridNeighborhoodSearch{2}(; periodic_box)#, cell_list)
 
 semi = Semidiscretization(fluid_system, boundary_system, boundary_system_cylinder;
                           neighborhood_search)
@@ -93,7 +94,6 @@ shifting_callback = ParticleShiftingCallback()
 callbacks = CallbackSet(info_callback, saving_callback, shifting_callback)
 
 # Use a Runge-Kutta method with automatic (error based) time step size control
-sol = solve(ode, RDPK3SpFSAL49(),
-            abstol=1.0e-6, # Default abstol is 1e-6 (may need to be tuned to prevent boundary penetration)
-            reltol=1.0e-4, # Default reltol is 1e-3 (may need to be tuned to prevent boundary penetration)
+sol = solve(ode, SymplecticEuler(),
+            dt=time_step,
             save_everystep=false, callback=callbacks);
