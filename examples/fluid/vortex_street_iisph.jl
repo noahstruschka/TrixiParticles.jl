@@ -16,9 +16,10 @@ spacing_ratio = 1
 tank_size = (65.0, 20.0)
 initial_fluid_size = tank_size
 
+diameter = 4
 Re = 200
 initial_velocity = (1.0, 0.0)
-nu = 1 * 1 / Re
+nu = 1 * diameter / Re
 
 strouhal_number = 0.198 * (1 - 19.7 / Re)
 frequency = strouhal_number * initial_velocity[1] / 1
@@ -34,10 +35,10 @@ tank = RectangularTank(fluid_particle_spacing, initial_fluid_size, tank_size, fl
                        n_layers=boundary_layers, spacing_ratio=spacing_ratio,
                        faces=(false, false, true, true), velocity=initial_velocity)
 
-hollow_sphere = SphereShape(fluid_particle_spacing, 0.5, (5.0, 10.0), fluid_density,
+hollow_sphere = SphereShape(fluid_particle_spacing, diameter / 2, (5.0, 10.0), fluid_density,
                             n_layers=4, sphere_type=RoundSphere())
 
-filled_sphere = SphereShape(fluid_particle_spacing, 0.5, (5.0, 10.0), fluid_density,
+filled_sphere = SphereShape(fluid_particle_spacing, diameter / 2, (5.0, 10.0), fluid_density,
                             sphere_type=RoundSphere())
 
 # n_particles = round(Int, 0.12 / fluid_particle_spacing)
@@ -47,13 +48,13 @@ fluid = setdiff(tank.fluid, filled_sphere)
 
 # ==========================================================================================
 # ==== Fluid
-smoothing_length = 2 * fluid_particle_spacing
-smoothing_kernel = WendlandC2Kernel{2}()
+smoothing_length = 1.2 * fluid_particle_spacing
+smoothing_kernel = SchoenbergCubicSplineKernel{2}()
 
 viscosity = ViscosityAdami(; nu)
 #density_diffusion = DensityDiffusionAntuono(fluid, delta=0.1)
 #fluid_density_calculator = ContinuityDensity()
-time_step=0.001
+time_step=0.01
 fluid_system = ImplicitIncompressibleSPHSystem(fluid, smoothing_kernel, smoothing_length, fluid_density,
                                                 viscosity=viscosity,
                                                 min_iterations=5,
