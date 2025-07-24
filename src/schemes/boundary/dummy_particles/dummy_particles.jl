@@ -152,6 +152,9 @@ struct BernoulliPressureExtrapolation{ELTYPE}
     end
 end
 
+struct PressureBoundaries end
+
+
 @doc raw"""
     PressureMirroring()
 
@@ -207,6 +210,14 @@ function create_cache_model(initial_density,
 
     return (; density)
 end
+
+function create_cache_model(initial_density,
+                            ::PressureBoundaries)
+    rest_density = copy(initial_density)
+    density = copy(initial_density)
+    return (; rest_density, density)
+end
+
 
 @inline create_cache_model(initial_density, ::ContinuityDensity) = (; initial_density)
 
@@ -288,7 +299,7 @@ end
     return model.pressure
 end
 
-@inline function update_density!(boundary_model::BoundaryModelDummyParticles,
+@inline function update_density!(boundary_model::Union{BoundaryModelDummyParticles, PressureBoundaries},
                                  system, v, u, v_ode, u_ode, semi)
     (; density_calculator) = boundary_model
 
