@@ -212,8 +212,16 @@ end
 #TODO: What do we do with the sound speed? This is needed for the viscosity.
 @inline system_sound_speed(system::ImplicitIncompressibleSPHSystem) = 1000.0
 
-# Calculates the pressure values by solving a linear system with a relaxed Jacobi scheme
 function update_quantities!(system::ImplicitIncompressibleSPHSystem, v, u,
+                            v_ode, u_ode, semi, t)
+    density = (; system)
+
+    summation_density!(system, semi, u, u_ode, density)
+    return system
+end
+
+# Calculates the pressure values by solving a linear system with a relaxed Jacobi scheme
+function update_pressure!(system::ImplicitIncompressibleSPHSystem, v, u,
                             v_ode, u_ode, semi, t)
     @trixi_timeit timer() "predict advection" predict_advection(system, v, u, v_ode, u_ode,
                                                                 semi, t)
@@ -229,9 +237,6 @@ function predict_advection(system, v, u, v_ode, u_ode, semi, t)
      time_step) = system
      d_ii_array = system.d_ii
     sound_speed = system_sound_speed(system) # TODO
-
-    # Compute density by kernel summation
-    summation_density!(system, semi, u, u_ode, density)
 
     # Initialize arrays
     v_particle_system = wrap_v(v_ode, system, semi)
