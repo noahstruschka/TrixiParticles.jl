@@ -65,7 +65,7 @@ function BoundaryModelDummyParticles(initial_density, hydrodynamic_mass,
     n_particles = length(initial_density)
 
     cache = (; create_cache_model(viscosity, n_particles, NDIMS)...,
-             create_cache_model(initial_density, density_calculator)...,
+             create_cache_model(initial_density, density_calculator, NDIMS, ELTYPE, n_particles)...,
              create_cache_model(correction, initial_density, NDIMS, n_particles)...)
 
     # If the `reference_density_spacing` is set calculate the `ideal_neighbor_count`
@@ -205,17 +205,19 @@ function create_cache_model(::MixedKernelGradientCorrection, density, NDIMS, n_p
 end
 
 function create_cache_model(initial_density,
-                            ::Union{SummationDensity, PressureMirroring, PressureZeroing})
+                            ::Union{SummationDensity, PressureMirroring, PressureZeroing}, NDIMS, ELTYPE, n_particles)
     density = copy(initial_density)
 
     return (; density)
 end
 
 function create_cache_model(initial_density,
-                            ::PressureBoundaries)
+                            ::PressureBoundaries, NDIMS, ELTYPE, n_particles)
     rest_density = copy(initial_density)
     density = copy(initial_density)
-    return (; rest_density, density)
+    a_ii = zeros(ELTYPE, n_particles)
+    d_ii = zeros(ELTYPE, NDIMS, n_particles)
+    return (; rest_density, density, a_ii, d_ii)
 end
 
 
@@ -223,7 +225,7 @@ end
 
 function create_cache_model(initial_density,
                             ::Union{AdamiPressureExtrapolation,
-                                    BernoulliPressureExtrapolation})
+                                    BernoulliPressureExtrapolation}, NDIMS, ELTYPE, n_particles)
     density = copy(initial_density)
     volume = similar(initial_density)
 
@@ -264,7 +266,7 @@ end
 # For most density calculators, the pressure is updated in every step
 initial_boundary_pressure(initial_density, density_calculator, _) = similar(initial_density)
 # Pressure mirroring does not use the pressure, so we set it to zero for the visualization
-initial_boundary_pressure(initial_density, ::PressureMirroring, _) = zero(initial_density)
+initial_boundary_pressure(initial_density, ::Union{PressureMirroring, PressureBoundaries}, _) = zero(initial_density)
 
 # For pressure zeroing, set the pressure to the reference pressure (zero with free surfaces)
 function initial_boundary_pressure(initial_density, ::PressureZeroing, state_equation)

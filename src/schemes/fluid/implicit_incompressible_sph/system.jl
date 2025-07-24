@@ -113,7 +113,7 @@ function ImplicitIncompressibleSPHSystem(initial_condition,
 
     pressure_acceleration = pressure_acceleration_summation_density
 
-    density = copy(initial_condition.density)
+    density = similar(initial_condition.density)
     predicted_density = zeros(ELTYPE, n_particles)
     a_ii = zeros(ELTYPE, n_particles)
     d_ii = zeros(ELTYPE, NDIMS, n_particles)
@@ -214,7 +214,7 @@ end
 
 function update_quantities!(system::ImplicitIncompressibleSPHSystem, v, u,
                             v_ode, u_ode, semi, t)
-    density = (; system)
+    (; density) = system
 
     summation_density!(system, semi, u, u_ode, density)
     return system
