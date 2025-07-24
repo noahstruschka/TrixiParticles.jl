@@ -498,7 +498,7 @@ function calculate_d_ii(system, boundary_model, density_calculator::PressureMirr
 end
 
 # Calculates a summand for the calculation of the d_ii values (pressure zeroing)
-function calculate_d_ii(system, boundary_model, density_calculator::PressureZeroing, m_b,
+function calculate_d_ii(system, boundary_model, density_calculator, m_b,
                         rho_a, grad_kernel, time_step)
     return -time_step^2 * m_b / rho_a^2 * grad_kernel
 end
