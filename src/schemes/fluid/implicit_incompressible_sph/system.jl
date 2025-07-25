@@ -233,18 +233,23 @@ function update_pressure!(system::ImplicitIncompressibleSPHSystem, v, u,
 end
 
 function predict_advection(system, v, u, v_ode, u_ode, semi, t)
+    foreach_system(semi) do system
+        calculate_predicted_velocity(system, v, u, v_ode, u_ode, semi, t)
+    end
 
-    calculate_predicted_velocity(system, v, u, v_ode, u_ode, semi, t)
-
-    calculate_d_ii_values(system, v, u, v_ode, u_ode, semi, t)
-
-    calculate_diagonal_elements(system, v, u, v_ode, u_ode, semi, t)
-
-    calculate_predicted_density(system, v, u, v_ode, u_ode, semi, t)
+    foreach_system(semi) do system
+        calculate_d_ii_values(system, v, u, v_ode, u_ode, semi, t)
+    end
+    foreach_system(semi) do system
+        calculate_diagonal_elements(system, v, u, v_ode, u_ode, semi, t)
+    end
+    foreach_system(semi) do system
+        calculate_predicted_density(system, v, u, v_ode, u_ode, semi, t)
+    end
 end
 
 # Calculate pressure values with iterative pressure solver (relaxed jacobi scheme)
-function pressure_solve(system, v, u, v_ode, u_ode, semi, t)
+function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
     (; pressure, reference_density, max_error, min_iterations, max_iterations, time_step) = system
 
     # Set initial pressure (p_0) to a half of the current pressure value
@@ -269,7 +274,7 @@ function pressure_solve(system, v, u, v_ode, u_ode, semi, t)
     end
 end
 
-function pressure_solve_iteration(system, avg_density_error, u, u_ode, semi, time_step)
+function pressure_solve_iteration(system::ImplicitIncompressibleSPHSystem, avg_density_error, u, u_ode, semi, time_step)
     (; reference_density, sum_d_ij_pj, sum_term, pressure, predicted_density, a_ii,
      omega) = system
 
