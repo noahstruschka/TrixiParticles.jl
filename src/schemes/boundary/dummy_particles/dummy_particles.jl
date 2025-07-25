@@ -152,9 +152,21 @@ struct BernoulliPressureExtrapolation{ELTYPE}
     end
 end
 
-struct PressureBoundaries end
+@doc raw"""
+    PressureBoundaries()
 
+`density_calculator` for `BoundaryModelDummyParticles`.
 
+!!! note
+    This boundary model can only be used in combination with IISPH.
+"""
+struct PressureBoundaries{ELTYPE}
+    time_step :: ELTYPE
+
+    function PressureBoundaries(time_step;)
+        return new{eltype(time_step)}(time_step)
+    end
+end
 @doc raw"""
     PressureMirroring()
 
@@ -212,11 +224,12 @@ function create_cache_model(initial_density,
 end
 
 function create_cache_model(initial_density,
-                            ::PressureBoundaries, NDIMS, ELTYPE, n_particles)
+                            density_calculator::PressureBoundaries, NDIMS, ELTYPE, n_particles)
     reference_density = initial_density[1]
     density = copy(initial_density)
     a_ii = zeros(ELTYPE, n_particles)
     d_ii = zeros(ELTYPE, NDIMS, n_particles)
+    time_step = density_calculator.time_step
     return (; reference_density, density, a_ii, d_ii)
 end
 
@@ -896,7 +909,7 @@ function calculate_d_ii_values(boundary_model, ::PressureBoundaries, v, u,
 end
 
 # Calculate pressure values with iterative pressure solver (relaxed jacobi scheme)
-function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
+function pressure_solve(system::BoundarySystem, v, u, v_ode, u_ode, semi, t)
     (; boundary_model) = system
     (; density_calculator) = boundary_model
     return system #TODO
