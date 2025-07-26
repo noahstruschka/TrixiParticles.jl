@@ -252,9 +252,8 @@ end
 function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
     (; pressure, reference_density, max_error, min_iterations, max_iterations, time_step) = system
 
-    # Set initial pressure (p_0) to a half of the current pressure value
-    @threaded semi for particle in each_moving_particle(system)
-        pressure[particle] = 0.5 * pressure[particle]
+    foreach_system(semi) do system
+        initialize_pressure(system, semi)
     end
 
     avg_density_error = 0.0
@@ -314,7 +313,7 @@ function pressure_solve_iteration(system::ImplicitIncompressibleSPHSystem, avg_d
                                                                        distance
             grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
             sum_term[particle] += calculate_sum_term(system, neighbor_system, particle,
-                                                     neighbor, pressure, grad_kernel,
+                                                     neighbor, grad_kernel,
                                                      time_step)
         end
     end
@@ -415,13 +414,15 @@ end
 
 
 # Calculate the large sum in eq. 13 of Ihmsen et al. (2013) for each particle (as `sum_term`)
-function calculate_sum_term(system, neighbor_system::ImplicitIncompressibleSPHSystem,
-                            particle, neighbor, pressure, grad_kernel, time_step)
+function calculate_sum_term(system::ImplicitIncompressibleSPHSystem, neighbor_system::ImplicitIncompressibleSPHSystem,
+                            particle, neighbor, grad_kernel, time_step)
+    pressure_system = system.pressure
+    pressure_neighbor = neighbor_system.pressure
     m_j = hydrodynamic_mass(neighbor_system, neighbor)
     sum_dik_pk = sum_dij_pj(system, particle)
     d_jj = d_ii(neighbor_system, neighbor)
-    p_i = pressure[particle]
-    p_j = pressure[neighbor]
+    p_i = pressure_system[particle]
+    p_j = pressure_neighbor[neighbor]
     sum_djk_pk = sum_dij_pj(neighbor_system, neighbor)
     d_ji = calculate_d_ij(system, neighbor_system, system, particle, -grad_kernel, time_step)
 
@@ -430,8 +431,8 @@ function calculate_sum_term(system, neighbor_system::ImplicitIncompressibleSPHSy
     return m_j * dot(sum_dik_pk - d_jj * p_j - (sum_djk_pk - d_ji * p_i), grad_kernel)
 end
 
-function calculate_sum_term(system, neighbor_system::BoundarySystem, particle, neighbor,
-                            pressure, grad_kernel, time_step)
+function calculate_sum_term(system::ImplicitIncompressibleSPHSystem, neighbor_system::BoundarySystem, particle, neighbor,
+                            grad_kernel, time_step)
     sum_dik_pk = sum_dij_pj(system, particle)
     m_j = hydrodynamic_mass(neighbor_system, neighbor)
 
@@ -592,5 +593,13 @@ function calculate_d_ii_values(system::ImplicitIncompressibleSPHSystem, v, u,
                                                     time_step)
             end
         end
+    end
+end
+
+function initialize_pressure(system::ImplicitIncompressibleSPHSystem, semi)
+    (; pressure) = system
+    # Set initial pressure (p_0) to a half of the current pressure value
+    @threaded semi for particle in each_moving_particle(system)
+        pressure[particle] = 0.5 * pressure[particle]
     end
 end

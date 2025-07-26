@@ -715,12 +715,15 @@ end
 function calculate_source_term(system::BoundarySystem, particle)
     (; boundary_model) = system
     (; density_calculator) = boundary_model
-    return calculate_source_term(boundary_model, density_calculator, particle)
+    return calculate_source_term(system, boundary_model, density_calculator, particle)
 end
 
 function calculate_source_term(boundary_model::BoundaryModelDummyParticles, density_calculator::PressureBoundaries, particle)
-    (; cache) = boundary_model
-    (; reference_density, predicted_density) = cache
+    return system
+end
+
+function calculate_source_term(system, boundary_model::BoundaryModelDummyParticles, density_calculator::PressureBoundaries, particle)
+    (; reference_density, predicted_density) = boundary_model.cache
     return reference_density - predicted_density[particle]
 end
 
@@ -977,7 +980,7 @@ function pressure_solve_iteration(boundary_model, ::PressureBoundaries, avg_dens
                                                                        distance
             grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
             sum_term[particle] += calculate_sum_term(system, neighbor_system, particle,
-                                                     neighbor, pressure, grad_kernel,
+                                                     neighbor, grad_kernel,
                                                      time_step)
         end
     end
@@ -1003,4 +1006,57 @@ function pressure_solve_iteration(boundary_model, ::PressureBoundaries, avg_dens
         end
     end
     avg_density_error /= nparticles(system)
+end
+
+function initialize_pressure(system::BoundarySystem, semi)
+    (; boundary_model) = system
+    (; density_calculator) = boundary_model
+
+    return initialize_pressure(system, boundary_model, density_calculator, semi)
+end
+
+function initialize_pressure(system, boundary_model, density_calculator, semi)
+    return system
+end
+
+function initialize_pressure(system, boundary_model, ::PressureBoundaries, semi)
+    (; pressure) = boundary_model
+    # Set initial pressure (p_0) to a half of the current pressure value
+    @threaded semi for particle in each_moving_particle(system)
+        pressure[particle] = 0.5 * pressure[particle]
+    end
+end
+
+function calculate_sum_term(system::BoundarySystem, neighbor_system,
+    particle, neighbor, grad_kernel, time_step)
+    (; boundary_model) = system
+    (; density_calculator) = boundary_model
+    return calculate_sum_term(system, boundary_model, density_calculator, neighbor_system, particle, neighbor, grad_kernel, time_step)
+end
+
+function calculate_sum_term(system, boundary_model, density_calculator, neighbor_system, particle, neighbor, grad_kernel, time_step)
+    return system
+end
+
+# Calculate the large sum in eq. 13 of Ihmsen et al. (2013) for each particle (as `sum_term`)
+function calculate_sum_term(system, boundary_model, ::PressureBoundaries, neighbor_system::FluidSystem,
+        particle, neighbor, grad_kernel, time_step)
+    pressure_system = boundary_model.pressure
+    pressure_neighbor = neighbor_system.pressure
+
+    m_j = hydrodynamic_mass(neighbor_system, neighbor)
+    d_jj = d_ii(neighbor_system, neighbor)
+    p_i = pressure_system[particle]
+    p_j = pressure_neighbor[neighbor]
+    sum_djk_pk = sum_dij_pj(neighbor_system, neighbor)
+    d_ji = calculate_d_ij(system, neighbor_system, system, particle, -grad_kernel, time_step)
+
+    # Equation 13 of Ihmsen et al. (2013):
+    # m_j * (\sum_k d_ik * p_k - d_jj * p_j - \sum_{k != i} d_jk * p_k) * grad_W_ij
+    return m_j * dot(- d_jj * p_j - (sum_djk_pk - d_ji * p_i), grad_kernel)
+end
+
+function calculate_sum_term(system, boundary_model, ::PressureBoundaries, neighbor_system::BoundarySystem,
+    particle, neighbor, grad_kernel, time_step)
+    return zero(SVector{ndims(system), eltype(system)})
 end
