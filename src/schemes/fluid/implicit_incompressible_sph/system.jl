@@ -292,7 +292,7 @@ function pressure_solve_iteration(system::ImplicitIncompressibleSPHSystem, avg_d
         # Calculate the sum d_ij * p_j over all neighbors j for each particle i (Ihmsen et al. 2013, eq. 13)
         grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
         p_b = pressure[neighbor]
-        d_ab = calculate_d_ij(system, system, neighbor, grad_kernel, time_step)
+        d_ab = calculate_d_ij(system, system, system, neighbor, grad_kernel, time_step)
         sum_dij_pj_ = d_ab * p_b
 
         for i in 1:ndims(system)
@@ -399,14 +399,14 @@ function calculate_d_ii(system::ImplicitIncompressibleSPHSystem, neighbor_system
 end
 
 # Calculates the d_ij value for a particle i and his neighbor j from the equation 9 in 'IHMSEN et al'
-function calculate_d_ij(system::ImplicitIncompressibleSPHSystem, neighbor_system::ImplicitIncompressibleSPHSystem, particle_j, grad_kernel, time_step)
+function calculate_d_ij(system::ImplicitIncompressibleSPHSystem, neighbor_system::ImplicitIncompressibleSPHSystem, reference_system, particle_j, grad_kernel, time_step)
     # (delta t)^2 * m_i / rho_i ^2 * gradW_ij
-    return -time_step^2 * hydrodynamic_mass(neighbor_system, particle_j) /
-           neighbor_system.density[particle_j]^2 * grad_kernel
+    return -time_step^2 * hydrodynamic_mass(reference_system, particle_j) /
+           reference_system.density[particle_j]^2 * grad_kernel
 end
 
 # Calculates the d_ij value for a particle i and his neighbor j from the equation 9 in 'IHMSEN et al'
-function calculate_d_ij(system::ImplicitIncompressibleSPHSystem, neighbor_system::BoundarySystem,
+function calculate_d_ij(system::ImplicitIncompressibleSPHSystem, neighbor_system::BoundarySystem, reference_system,
         particle_j, grad_kernel,
         time_step)
     # (delta t)^2 * m_i / rho_i ^2 * gradW_ij
@@ -428,7 +428,7 @@ function calculate_sum_term(system, neighbor_system::ImplicitIncompressibleSPHSy
     p_i = pressure[particle]
     p_j = pressure[neighbor]
     sum_djk_pk = sum_dij_pj(neighbor_system, neighbor)
-    d_ji = calculate_d_ij(system, system, particle, -grad_kernel, time_step)
+    d_ji = calculate_d_ij(system, neighbor_system, system, particle, -grad_kernel, time_step)
 
     # Equation 13 of Ihmsen et al. (2013):
     # m_j * (\sum_k d_ik * p_k - d_jj * p_j - \sum_{k != i} d_jk * p_k) * grad_W_ij
@@ -501,7 +501,7 @@ function calculate_diagonal_elements(system::ImplicitIncompressibleSPHSystem, v,
             # According to eq. 9 in Ihmsen et al. (2013).
             # Note that we compute d_ji and not d_ij. We can use the antisymmetry
             # of the kernel gradient and just flip the sign of W_ij to obtain W_ji.
-            d_ji_ = calculate_d_ij(system, neighbor_system, particle, -grad_kernel, time_step)
+            d_ji_ = calculate_d_ij(system, neighbor_system, system, particle, -grad_kernel, time_step)
             d_ii_ = d_ii(system, particle)
             m_b = hydrodynamic_mass(neighbor_system, neighbor)
 
