@@ -274,7 +274,7 @@ function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_
 end
 
 function pressure_solve_iteration(system::ImplicitIncompressibleSPHSystem, avg_density_error, u, u_ode, semi, time_step)
-    (; reference_density, sum_d_ij_pj, sum_term, pressure, predicted_density, a_ii,
+    (; reference_density, sum_d_ij_pj, sum_term, pressure, a_ii,
      omega) = system
 
     set_zero!(sum_d_ij_pj)

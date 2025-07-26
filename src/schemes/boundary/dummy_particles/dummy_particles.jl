@@ -162,9 +162,10 @@ end
 """
 struct PressureBoundaries{ELTYPE}
     time_step :: ELTYPE
+    omega :: ELTYPE
 
-    function PressureBoundaries(time_step;)
-        return new{eltype(time_step)}(time_step)
+    function PressureBoundaries(time_step; omega=0.5)
+        return new{eltype(time_step)}(time_step, omega)
     end
 end
 @doc raw"""
@@ -230,7 +231,10 @@ function create_cache_model(initial_density,
     a_ii = zeros(ELTYPE, n_particles)
     predicted_density = copy(initial_density)
     time_step = density_calculator.time_step
-    return (; reference_density, density, a_ii, predicted_density, time_step)
+    omega = density_calculator.omega
+    sum_d_ij_pj = zeros(ELTYPE, NDIMS, n_particles)
+    sum_term = zeros(ELTYPE, n_particles)
+    return (; reference_density, density, a_ii, predicted_density, sum_d_ij_pj, sum_term, omega, time_step)
 end
 
 
@@ -931,83 +935,6 @@ function pressure_solve(boundary_model,::PressureBoundaries, v, u, v_ode, u_ode,
     end
 end
 
-function pressure_solve_iteration(system::BoundarySystem, avg_density_error, u, u_ode, semi, time_step)
-    (; boundary_model) = system
-    (; density_calculator) = boundary_model
-    return system
-end
-
-function pressure_solve_iteration(boundary_model, ::PressureBoundaries, avg_density_error, u, u_ode, semi, time_step)
-    (; cache) = boundary_model
-    (; reference_density, sum_d_ij_pj, sum_term, pressure, predicted_density, a_ii,
-     omega) = cache
-
-    set_zero!(sum_d_ij_pj)
-
-    system_coords = current_coordinates(u, system)
-
-    foreach_point_neighbor(system, system, system_coords, system_coords,
-                           semi;
-                           points=each_moving_particle(system)) do particle,
-                                                                   neighbor,
-                                                                   pos_diff,
-                                                                   distance
-        # Calculate the sum d_ij * p_j over all neighbors j for each particle i (Ihmsen et al. 2013, eq. 13)
-        grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
-        p_b = pressure[neighbor]
-        d_ab = calculate_d_ij(system, neihgbor_system, negihbor_system, neighbor, grad_kernel, time_step)
-        sum_dij_pj_ = d_ab * p_b
-
-        for i in 1:ndims(system)
-            sum_d_ij_pj[i, particle] += sum_dij_pj_[i]
-        end
-    end
-
-    # Calculate the large sum in eq. 13 of Ihmsen et al. (2013) for each particle (as `sum_term`)
-    set_zero!(sum_term)
-    foreach_system(semi) do neighbor_system
-        # Get neighbor system u and v values
-        u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
-        # Get coordinates
-        system_coords = current_coordinates(u, system)
-        neighbor_system_coords = current_coordinates(u_neighbor_system, neighbor_system)
-
-        foreach_point_neighbor(system, neighbor_system, system_coords,
-                               neighbor_system_coords, semi;
-                               points=each_moving_particle(system)) do particle,
-                                                                       neighbor,
-                                                                       pos_diff,
-                                                                       distance
-            grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
-            sum_term[particle] += calculate_sum_term(system, neighbor_system, particle,
-                                                     neighbor, grad_kernel,
-                                                     time_step)
-        end
-    end
-
-    # Update the pressure values
-    @threaded semi for particle in eachparticle(system)
-        # Removing instabilities by avoiding to divide by very low values of `a_ii`.
-        # This is not mentioned in the paper but done in SPlisHSPlasH as well.
-        if abs(a_ii[particle]) > 1.0e-9
-            pressure[particle] = max((1-omega) * pressure[particle] +
-                                     omega / a_ii[particle] *
-                                     (calculate_source_term(system, particle) -
-                                      sum_term[particle]), 0.0)
-        else
-            pressure[particle] = 0.0
-        end
-        # Calculate the average density error for the termination condition
-        if (pressure[particle] != 0.0)
-            new_density = a_ii[particle]*pressure[particle] + sum_term[particle] -
-                          calculate_source_term(system, particle) +
-                          reference_density
-            avg_density_error += (new_density - reference_density)
-        end
-    end
-    avg_density_error /= nparticles(system)
-end
-
 function initialize_pressure(system::BoundarySystem, semi)
     (; boundary_model) = system
     (; density_calculator) = boundary_model
@@ -1059,4 +986,85 @@ end
 function calculate_sum_term(system, boundary_model, ::PressureBoundaries, neighbor_system::BoundarySystem,
     particle, neighbor, grad_kernel, time_step)
     return zero(SVector{ndims(system), eltype(system)})
+end
+
+function pressure_solve_iteration(system::BoundarySystem, avg_density_error, u, u_ode, semi, time_step)
+    (; boundary_model) = system
+    (; density_calculator) = boundary_model
+    return pressure_solve_iteration(system, boundary_model, density_calculator, avg_density_error, u, u_ode, semi, time_step)
+end
+
+function pressure_solve_iteration(system, boundary_model, density_calculator, avg_density_error, u, u_ode, semi, time_step)
+    return system
+end
+
+function pressure_solve_iteration(system, boundary_model, ::PressureBoundaries, avg_density_error, u, u_ode, semi, time_step)
+    # Get necessary fields
+    (; reference_density, sum_d_ij_pj, sum_term, a_ii, omega) = boundar_model.cache
+    (; pressure) = system
+
+    set_zero!(sum_d_ij_pj)
+
+    system_coords = current_coordinates(u, system)
+
+    foreach_point_neighbor(system, system, system_coords, system_coords,
+                           semi;
+                           points=each_moving_particle(system)) do particle,
+                                                                   neighbor,
+                                                                   pos_diff,
+                                                                   distance
+        # Calculate the sum d_ij * p_j over all neighbors j for each particle i (Ihmsen et al. 2013, eq. 13)
+        grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
+        p_b = pressure[neighbor]
+        d_ab = calculate_d_ij(system, system, system, neighbor, grad_kernel, time_step)
+        sum_dij_pj_ = d_ab * p_b
+
+        for i in 1:ndims(system)
+            sum_d_ij_pj[i, particle] += sum_dij_pj_[i]
+        end
+    end
+
+    # Calculate the large sum in eq. 13 of Ihmsen et al. (2013) for each particle (as `sum_term`)
+    set_zero!(sum_term)
+    foreach_system(semi) do neighbor_system
+        # Get neighbor system u and v values
+        u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
+        # Get coordinates
+        system_coords = current_coordinates(u, system)
+        neighbor_system_coords = current_coordinates(u_neighbor_system, neighbor_system)
+
+        foreach_point_neighbor(system, neighbor_system, system_coords,
+                               neighbor_system_coords, semi;
+                               points=each_moving_particle(system)) do particle,
+                                                                       neighbor,
+                                                                       pos_diff,
+                                                                       distance
+            grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
+            sum_term[particle] += calculate_sum_term(system, neighbor_system, particle,
+                                                     neighbor, grad_kernel,
+                                                     time_step)
+        end
+    end
+
+    # Update the pressure values
+    @threaded semi for particle in eachparticle(system)
+        # Removing instabilities by avoiding to divide by very low values of `a_ii`.
+        # This is not mentioned in the paper but done in SPlisHSPlasH as well.
+        if abs(a_ii[particle]) > 1.0e-9
+            pressure[particle] = max((1-omega) * pressure[particle] +
+                                     omega / a_ii[particle] *
+                                     (calculate_source_term(system, particle) -
+                                      sum_term[particle]), 0.0)
+        else
+            pressure[particle] = 0.0
+        end
+        # Calculate the average density error for the termination condition
+        if (pressure[particle] != 0.0)
+            new_density = a_ii[particle]*pressure[particle] + sum_term[particle] -
+                          calculate_source_term(system, particle) +
+                          reference_density
+            avg_density_error += (new_density - reference_density)
+        end
+    end
+    avg_density_error /= nparticles(system)
 end
