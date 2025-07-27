@@ -262,11 +262,13 @@ function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_
     # Convert relative error in percent to absolute error
     eta = max_error * 0.01 * reference_density
     while (!terminate)
-        @trixi_timeit timer() "pressure solver iteration" pressure_solve_iteration(system,
+        foreach_system(semi) do system
+            @trixi_timeit timer() "pressure solver iteration" pressure_solve_iteration(system,
                                                                                    avg_density_error,
                                                                                    u, u_ode,
                                                                                    semi,
                                                                                    time_step)
+        end
         # Update termination condition
         terminate = (avg_density_error <= eta && l >= min_iterations) || l >= max_iterations
         l += 1

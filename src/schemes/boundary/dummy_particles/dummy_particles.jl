@@ -1000,8 +1000,8 @@ end
 
 function pressure_solve_iteration(system, boundary_model, ::PressureBoundaries, avg_density_error, u, u_ode, semi, time_step)
     # Get necessary fields
-    (; reference_density, sum_d_ij_pj, sum_term, a_ii, omega) = boundar_model.cache
-    (; pressure) = system
+    (; reference_density, sum_d_ij_pj, sum_term, a_ii, omega) = boundary_model.cache
+    (; pressure) = boundary_model
 
     set_zero!(sum_d_ij_pj)
 
