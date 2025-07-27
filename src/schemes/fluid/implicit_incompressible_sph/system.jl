@@ -250,7 +250,7 @@ end
 
 # Calculate pressure values with iterative pressure solver (relaxed jacobi scheme)
 function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
-    (; pressure, reference_density, max_error, min_iterations, max_iterations, time_step) = system
+    (; pressure, reference_density, max_error, min_iterations, max_iterations) = system
 
     foreach_system(semi) do system
         initialize_pressure(system, semi)
@@ -260,13 +260,10 @@ function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_
     l = 1
     terminate = false
     while (!terminate)
-        foreach_system(semi) do system
-            @trixi_timeit timer() "pressure solver iteration" pressure_solve_iteration(system,
-                                                                                   avg_density_error,
-                                                                                   u, u_ode,
-                                                                                   semi,
-                                                                                   time_step)
-        end
+        @trixi_timeit timer() "pressure solver iteration" pressure_solve_iteration(system,
+                                                                                avg_density_error,
+                                                                                u, u_ode,
+                                                                                semi)
         # Convert relative error in percent to absolute error
         eta = max_error * 0.01 * reference_density
         # Update termination condition
@@ -275,32 +272,33 @@ function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_
     end
 end
 
-function pressure_solve_iteration(system::ImplicitIncompressibleSPHSystem, avg_density_error, u, u_ode, semi, time_step)
-    # Get necessary fields
-    (; reference_density, sum_d_ij_pj, sum_term, pressure, a_ii,
-     omega) = system
+function calculate_sum_d_ij_pj(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi)
+    (; sum_d_ij_pj, pressure, time_step) = system
 
-    set_zero!(sum_d_ij_pj)
+   set_zero!(sum_d_ij_pj)
 
-    system_coords = current_coordinates(u, system)
+   system_coords = current_coordinates(u, system)
 
-    foreach_point_neighbor(system, system, system_coords, system_coords,
-                           semi;
-                           points=each_moving_particle(system)) do particle,
-                                                                   neighbor,
-                                                                   pos_diff,
-                                                                   distance
-        # Calculate the sum d_ij * p_j over all neighbors j for each particle i (Ihmsen et al. 2013, eq. 13)
-        grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
-        p_b = pressure[neighbor]
-        d_ab = calculate_d_ij(system, system, system, neighbor, grad_kernel, time_step)
-        sum_dij_pj_ = d_ab * p_b
+   foreach_point_neighbor(system, system, system_coords, system_coords,
+                          semi;
+                          points=each_moving_particle(system)) do particle,
+                                                                  neighbor,
+                                                                  pos_diff,
+                                                                  distance
+       # Calculate the sum d_ij * p_j over all neighbors j for each particle i (Ihmsen et al. 2013, eq. 13)
+       grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
+       p_b = pressure[neighbor]
+       d_ab = calculate_d_ij(system, system, system, neighbor, grad_kernel, time_step)
+       sum_dij_pj_ = d_ab * p_b
 
-        for i in 1:ndims(system)
-            sum_d_ij_pj[i, particle] += sum_dij_pj_[i]
-        end
-    end
+       for i in 1:ndims(system)
+           sum_d_ij_pj[i, particle] += sum_dij_pj_[i]
+       end
+   end
+end
 
+function calculate_sum_term_values(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi)
+    (; sum_term, time_step) = system
     # Calculate the large sum in eq. 13 of Ihmsen et al. (2013) for each particle (as `sum_term`)
     set_zero!(sum_term)
     foreach_system(semi) do neighbor_system
@@ -322,7 +320,10 @@ function pressure_solve_iteration(system::ImplicitIncompressibleSPHSystem, avg_d
                                                      time_step)
         end
     end
+end
 
+function pressure_update(system::ImplicitIncompressibleSPHSystem, avg_density_error, u, u_ode, semi)
+    (; pressure, reference_density, a_ii, sum_term, omega, time_step) = system
     # Update the pressure values
     @threaded semi for particle in eachparticle(system)
         # Removing instabilities by avoiding to divide by very low values of `a_ii`.
@@ -344,6 +345,20 @@ function pressure_solve_iteration(system::ImplicitIncompressibleSPHSystem, avg_d
         end
     end
     avg_density_error /= nparticles(system)
+end
+
+function pressure_solve_iteration(system, avg_density_error, u, u_ode, semi)
+    foreach_system(semi) do system
+        calculate_sum_d_ij_pj(system, u, u_ode, semi)
+    end
+
+    foreach_system(semi) do system
+        calculate_sum_term_values(system, u, u_ode, semi)
+    end
+
+    foreach_system(semi) do system
+        pressure_update(system, avg_density_error, u, u_ode, semi)
+    end
 end
 
 @propagate_inbounds function predicted_velocity(system::ImplicitIncompressibleSPHSystem,
