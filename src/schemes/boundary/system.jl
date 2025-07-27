@@ -255,6 +255,11 @@ end
     return nparticles(system)
 end
 
+
+@inline function n_moving_particles(system::BoundarySPHSystem{<:BoundaryModelDummyParticles{<:PressureBoundaries}})
+    return nparticles(system)
+end
+
 @inline u_nvariables(system::Union{BoundarySPHSystem, BoundaryDEMSystem}) = 0
 
 # For BoundaryModelDummyParticles with ContinuityDensity, this needs to be 1.
