@@ -1104,13 +1104,13 @@ function pressure_update(system, boundary_model, ::PressureBoundaries, avg_densi
 end
 #=
 Check list:
-calculate_d_ii function
-calculate d_ij function
-calculate diagonal elements function
-calculate predicted velocity function
-calculate predicted density function
-calculate source term function
-calculate_sum_d_ij_pj function
-calculate_sum_term_values function
+calculate_d_ii function - Check
+calculate d_ij function - Check
+calculate diagonal elements function - Check
+calculate predicted velocity function - Check
+calculate predicted density function - Check
+calculate source term function - Check
+calculate_sum_d_ij_pj function - Check
+calculate_sum_term_values function- Check
 pressure_update function
 =#
