@@ -16,7 +16,7 @@ viscosity = ViscosityAdami(; nu)
 
 # Use IISPH as fluid system
 time_step = 1e-3
-omega = 0.1
+omega = 0.5
 IISPH_system = ImplicitIncompressibleSPHSystem(tank.fluid, smoothing_kernel,
                                                smoothing_length, fluid_density,
                                                viscosity=ViscosityAdami(nu=nu),
