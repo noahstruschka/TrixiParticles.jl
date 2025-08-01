@@ -233,21 +233,26 @@ function update_pressure!(system::ImplicitIncompressibleSPHSystem, v, u,
 end
 
 function predict_advection(system, v, u, v_ode, u_ode, semi, t)
+    #println("Mittelwert - Pressure: ", sum(system.pressure)/nparticles(system))
     foreach_system(semi) do system
         calculate_predicted_velocity(system, v, u, v_ode, u_ode, semi, t)
     end
-
+    # Check
     foreach_system(semi) do system
         calculate_d_ii_values(system, v, u, v_ode, u_ode, semi, t)
     end
+    # Check
     foreach_system(semi) do system
         calculate_diagonal_elements(system, v, u, v_ode, u_ode, semi, t)
     end
+    # Check
     foreach_system(semi) do system
         calculate_predicted_density(system, v, u, v_ode, u_ode, semi, t)
     end
+    # Check
 end
-
+#FEHLER MUSS EIGENTLICH IN PRESSURE SOLVE SEIN
+# TODO: Pressure Solve genau durchgehen
 # Calculate pressure values with iterative pressure solver (relaxed jacobi scheme)
 function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
     (; pressure, reference_density, max_error, min_iterations, max_iterations) = system
@@ -366,19 +371,25 @@ function calculate_sum_term_values(system::ImplicitIncompressibleSPHSystem, u, u
                                                      time_step)
         end
     end
+    #println("min: ", minimum(sum_term))
+    #println("max: ", maximum(sum_term))
+    #println("mean: ", sum(sum_term)/nparticles(system))
 end
 
 function pressure_update(system::ImplicitIncompressibleSPHSystem, avg_density_error, u, u_ode, semi)
     (; pressure, reference_density, a_ii, sum_term, omega, time_step) = system
     # Update the pressure values
+    rhs_array=zero(a_ii)
     @threaded semi for particle in eachparticle(system)
         # Removing instabilities by avoiding to divide by very low values of `a_ii`.
         # This is not mentioned in the paper but done in SPlisHSPlasH as well.
         if abs(a_ii[particle]) > 1.0e-9
+            rhs = (calculate_source_term(system, particle) - sum_term[particle])#, 0.0)
+            rhs_array[particle] = rhs
             pressure[particle] = max((1-omega) * pressure[particle] +
-                                     omega / a_ii[particle] *
-                                     (calculate_source_term(system, particle) -
-                                      sum_term[particle]), 0.0)
+                                     omega / a_ii[particle] * rhs, 0.0)
+                                     #(calculate_source_term(system, particle) -
+                                     # sum_term[particle]), 0.0)
         else
             pressure[particle] = 0.0
         end
@@ -389,8 +400,12 @@ function pressure_update(system::ImplicitIncompressibleSPHSystem, avg_density_er
                           reference_density
             avg_density_error += (new_density - reference_density)
         end
+        #println(rhs/a_ii[particle])
     end
     avg_density_error /= nparticles(system)
+    #println(sum(rhs_array)/nparticles(system))
+    #println(avg_density_error)
+    #println(sum(pressure)/nparticles(system))
 end
 
 function pressure_solve_iteration(system, avg_density_error, u, u_ode, semi)
@@ -421,18 +436,18 @@ end
 end
 
 # Calculates a summand for the calculation of the d_ii values
-function calculate_d_ii(system::ImplicitIncompressibleSPHSystem, neighbor_system::ImplicitIncompressibleSPHSystem, m_b, rho_a, grad_kernel, time_step)
+function calculate_d_ii(system, neighbor_system::ImplicitIncompressibleSPHSystem, m_b, rho_a, grad_kernel, time_step)
     return -time_step^2 * m_b / rho_a^2 * grad_kernel
 end
 
 # Calculates a summand for the calculation of the d_ii values
-function calculate_d_ii(system::ImplicitIncompressibleSPHSystem, neighbor_system::BoundarySystem, m_b, rho_a, grad_kernel, time_step)
-    return calculate_d_ii(system:: ImplicitIncompressibleSPHSystem, neighbor_system, neighbor_system.boundary_model, m_b, rho_a,
+function calculate_d_ii(system, neighbor_system::BoundarySystem, m_b, rho_a, grad_kernel, time_step)
+    return calculate_d_ii(system, neighbor_system, neighbor_system.boundary_model, m_b, rho_a,
                           grad_kernel, time_step)
 end
 
 # Calculates a summand for the calculation of the d_ii values
-function calculate_d_ii(system::ImplicitIncompressibleSPHSystem, neighbor_system, boundary_model::BoundaryModelDummyParticles, m_b, rho_a,
+function calculate_d_ii(system, neighbor_system, boundary_model::BoundaryModelDummyParticles, m_b, rho_a,
                         grad_kernel, time_step)
     return calculate_d_ii(system::ImplicitIncompressibleSPHSystem, neighbor_system, boundary_model, boundary_model.density_calculator, m_b,
                           rho_a, grad_kernel, time_step)
@@ -543,6 +558,7 @@ function calculate_predicted_density(system::ImplicitIncompressibleSPHSystem, v,
                                            dot(advection_velocity_diff, grad_kernel)
         end
     end
+    #println(sum(system.predicted_density)/nparticles(system))
 end
 
 
@@ -556,6 +572,9 @@ function calculate_diagonal_elements(system::ImplicitIncompressibleSPHSystem, v,
     foreach_system(semi) do neighbor_system
         calculate_diagonal_elements(system, neighbor_system, v, u, v_ode, u_ode, semi, t)
     end
+    #println("a_ii: ", sum(a_ii)/nparticles(system))
+    #println("min: ", minimum(a_ii))
+    #println("max: ", maximum(a_ii))
 end
 
 function calculate_diagonal_elements(system::ImplicitIncompressibleSPHSystem, neighbor_system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
@@ -620,6 +639,12 @@ end
 
 function calculate_predicted_velocity(system::ImplicitIncompressibleSPHSystem, v, u,
     v_ode, u_ode, semi, t)
+    #println("--------------PRESSURE - FLUID SYSTEM-----------------")
+    #println(system.pressure)
+    #println("Mittelwert: ", sum(system.pressure)/nparticles(system))
+    #println("--------------DENSITY - FLUID SYSTEM------------------")
+    #println(system.density)
+    #println("Mittelwert: ", sum(system.density)/nparticles(system))
     (; advection_velocity, time_step) = system
 
     v_system = wrap_v(v_ode, system, semi)
