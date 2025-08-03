@@ -229,7 +229,7 @@ function create_cache_model(initial_density,
     reference_density = initial_density[1] #TODO
     density = copy(initial_density)
     a_ii = zeros(ELTYPE, n_particles)
-    predicted_density = copy(initial_density)
+    predicted_density = zeros(ELTYPE, n_particles)
     time_step = density_calculator.time_step
     omega = density_calculator.omega
     sum_d_ij_pj = zeros(ELTYPE, NDIMS, n_particles)
@@ -750,7 +750,7 @@ function calculate_predicted_density(system, boundary_model, ::PressureBoundarie
     (; predicted_density, density, time_step) = boundary_model.cache
 
     predicted_density .= density
-
+    #println(density)
     foreach_system(semi) do neighbor_system
         u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
         system_coords = current_coordinates(u, system)
@@ -770,6 +770,7 @@ function calculate_predicted_density(system, boundary_model, ::PressureBoundarie
                                             dot(advection_velocity_diff, grad_kernel)
         end
     end
+    #println(predicted_density)
 end
 
 

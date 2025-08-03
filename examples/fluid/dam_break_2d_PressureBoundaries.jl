@@ -34,4 +34,4 @@ trixi_include(@__MODULE__,
               boundary_density_calculator=PressureBoundaries(time_step, omega=omega),
               state_equation=nothing,
               callbacks=CallbackSet(info_callback, saving_callback),
-              time_integration_algorithm=SymplecticEuler(), dt=time_step)#,maxiters=3)
+              time_integration_algorithm=SymplecticEuler(), dt=time_step)#, maxiters=1)
