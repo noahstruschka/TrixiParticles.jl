@@ -248,9 +248,9 @@ function predict_advection(system, v, u, v_ode, u_ode, semi, t)
     foreach_system(semi) do system
         calculate_diagonal_elements(system, v, u, v_ode, u_ode, semi, t)
     end
-    println(system.a_ii[1:100])
-    println(sum(system.a_ii)/nparticles(system))
-    println(maximum(system.a_ii))
+    #println(system.a_ii[1:100])
+    #println(sum(system.a_ii)/nparticles(system))
+    #println(maximum(system.a_ii))
     foreach_system(semi) do system
         calculate_predicted_density(system, v, u, v_ode, u_ode, semi, t)
     end

@@ -7,8 +7,8 @@ trixi_include(@__MODULE__,
               sol=nothing, ode=nothing)
 
 # Change smoothing kernel and length
-smoothing_length = 1.6 * fluid_particle_spacing
-smoothing_kernel = WendlandC2Kernel{2}()
+smoothing_length = 2.0 * fluid_particle_spacing
+smoothing_kernel = SchoenbergCubicSplineKernel{2}()
 
 # Calculate kinematic viscosity for the viscosity model
 nu = 0.02 * smoothing_length * sound_speed / 8

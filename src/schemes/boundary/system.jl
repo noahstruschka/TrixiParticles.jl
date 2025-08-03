@@ -424,6 +424,39 @@ end
 
 function initialize!(system::BoundarySPHSystem, semi)
     initialize_colorfield!(system, system.boundary_model, semi)
+    initialize_reference_density!(system, system.boundary_model, semi)
+    return system
+end
+
+function initialize_reference_density!(system, boundary_model, semi)
+    return system
+end
+
+function initialize_reference_density!(system, boundary_model::BoundaryModelDummyParticles, semi)
+    return initialize_reference_density!(system, boundary_model, boundary_model.density_calculator, semi)
+end
+
+function initialize_reference_density!(system, boundary_model, density_calculator, semi)
+    return system
+end
+
+function initialize_reference_density!(system, boundary_model, ::PressureBoundaries, semi)
+    #=
+    (; reference_density) = boundary_model.cache
+    system_coords = system.coordinates
+    (; smoothing_kernel, smoothing_length) = system.boundary_model
+    foreach_point_neighbor(system, system, system_coords, system_coords, semi,
+                            points=eachparticle(system)) do particle, neighbor,
+                                                            pos_diff, distance
+                            W_ab = kernel(smoothing_kernel, distance, smoothing_length)
+                            m_b = hydrodynamic_mass(system, neighbor)
+                            reference_density[particle] += m_b * W_ab
+    end
+    println(reference_density)
+    println(minimum(reference_density))
+    println(sum(reference_density)/nparticles(system))
+    println(maximum(reference_density))
+    =#
     return system
 end
 

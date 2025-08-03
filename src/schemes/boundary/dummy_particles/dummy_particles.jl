@@ -226,7 +226,7 @@ end
 
 function create_cache_model(initial_density,
                             density_calculator::PressureBoundaries, NDIMS, ELTYPE, n_particles)
-    reference_density = initial_density[1] #TODO
+    reference_density = initial_density[1]#zeros(ELTYPE, n_particles) #TODO
     density = copy(initial_density)
     a_ii = zeros(ELTYPE, n_particles)
     predicted_density = zeros(ELTYPE, n_particles)
@@ -856,10 +856,13 @@ function pressure_update(system, boundary_model, ::PressureBoundaries, avg_densi
     (; reference_density, a_ii, sum_term, omega) = boundary_model.cache
     (; pressure) = boundary_model
     # Update the pressure values
+    source_term = zeros(nparticles(system))
     @threaded semi for particle in eachparticle(system)
+        source_term[particle] = calculate_source_term(system, particle)
         # Removing instabilities by avoiding to divide by very low values of `a_ii`.
         # This is not mentioned in the paper but done in SPlisHSPlasH as well.
         if abs(a_ii[particle]) > 1.0e-9
+
             pressure[particle] = max((1-omega) * pressure[particle] +
                                      omega / a_ii[particle] *
                                      (calculate_source_term(system, particle) -
@@ -871,11 +874,18 @@ function pressure_update(system, boundary_model, ::PressureBoundaries, avg_densi
         if (pressure[particle] != 0.0)
             new_density = a_ii[particle]*pressure[particle] + sum_term[particle] -
                           calculate_source_term(system, particle) +
-                          reference_density
-            avg_density_error += (new_density - reference_density)
+                          reference_density[particle]
+            avg_density_error += (new_density - reference_density[particle])
         end
     end
     avg_density_error /= nparticles(system)
+    #println(source_term[1:100])
+    #println(sum(source_term)/nparticles(system))
+   # println(minimum(source_term))
+    #println(maximum(source_term))
+    #println(pressure[1:100])
+    #println(sum(pressure)/nparticles(system))
+    #println(maximum(pressure))
 end
 
 @propagate_inbounds function predicted_velocity(system::BoundarySystem, particle)
@@ -967,5 +977,5 @@ end
 
 function calculate_source_term(system, boundary_model::BoundaryModelDummyParticles, density_calculator::PressureBoundaries, particle)
     (; reference_density, predicted_density) = boundary_model.cache
-    return reference_density - predicted_density[particle]
+    return reference_density[particle] - predicted_density[particle]
 end
