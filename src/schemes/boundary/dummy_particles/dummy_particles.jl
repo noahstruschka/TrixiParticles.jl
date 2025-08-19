@@ -713,7 +713,7 @@ function calculate_diagonal_elements(system, boundary_model, density_calculator,
     foreach_point_neighbor(system, neighbor_system,
                             system_coords, neighbor_system_coords,
                             semi;
-                            points=each_moving_particle(system)) do particle,
+                            points=eachparticle(system)) do particle,
                                                                     neighbor,
                                                                     pos_diff,
                                                                     distance
@@ -758,7 +758,7 @@ function calculate_predicted_density(system, boundary_model, ::PressureBoundarie
 
         foreach_point_neighbor(system, neighbor_system, system_coords,
                                 neighbor_system_coords, semi,
-                                points=each_moving_particle(system)) do particle, neighbor,
+                                points=eachparticle(system)) do particle, neighbor,
                                                                         pos_diff, distance
             # Calculate the predicted velocity differences
             advection_velocity_diff = predicted_velocity(system, particle) -
@@ -829,7 +829,7 @@ function calculate_sum_term_values(system, boundary_model, ::PressureBoundaries,
 
         foreach_point_neighbor(system, neighbor_system, system_coords,
                                neighbor_system_coords, semi;
-                               points=each_moving_particle(system)) do particle,
+                               points=eachparticle(system)) do particle,
                                                                        neighbor,
                                                                        pos_diff,
                                                                        distance
@@ -874,14 +874,14 @@ function pressure_update(system, boundary_model, ::PressureBoundaries, avg_densi
         if (pressure[particle] != 0.0)
             new_density = a_ii[particle]*pressure[particle] + sum_term[particle] -
                           calculate_source_term(system, particle) +
-                          reference_density[particle]
-            avg_density_error += (new_density - reference_density[particle])
+                          reference_density
+            avg_density_error += (new_density - reference_density)
         end
     end
     avg_density_error /= nparticles(system)
     #println(source_term[1:100])
     #println(sum(source_term)/nparticles(system))
-   # println(minimum(source_term))
+    #println(minimum(source_term))
     #println(maximum(source_term))
     #println(pressure[1:100])
     #println(sum(pressure)/nparticles(system))
@@ -922,7 +922,7 @@ function calculate_d_ij(system, ::PressureBoundaries, neighbor_system::BoundaryS
     particle_j, grad_kernel,
     time_step)
     # (delta t)^2 * m_i / rho_i ^2 * gradW_ij
-    return  zero(SVector{ndims(system), eltype(system)})
+    return zero(SVector{ndims(system), eltype(system)})
 end
 
 function calculate_d_ji(system::BoundarySystem, neighbor_system, particle_i, grad_kernel, time_step)
@@ -977,5 +977,5 @@ end
 
 function calculate_source_term(system, boundary_model::BoundaryModelDummyParticles, density_calculator::PressureBoundaries, particle)
     (; reference_density, predicted_density) = boundary_model.cache
-    return reference_density[particle] - predicted_density[particle]
+    return reference_density - predicted_density[particle]
 end

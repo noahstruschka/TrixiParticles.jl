@@ -6,9 +6,10 @@ trixi_include(@__MODULE__,
               joinpath(examples_dir(), "fluid", "dam_break_2d.jl"),
               sol=nothing, ode=nothing)
 
+
 # Change smoothing kernel and length
-smoothing_length = 2.0 * fluid_particle_spacing
-smoothing_kernel = SchoenbergCubicSplineKernel{2}()
+smoothing_length = 1.6 * fluid_particle_spacing
+smoothing_kernel = WendlandC2Kernel{2}()
 
 # Calculate kinematic viscosity for the viscosity model
 nu = 0.02 * smoothing_length * sound_speed / 8
@@ -34,4 +35,4 @@ trixi_include(@__MODULE__,
               boundary_density_calculator=PressureBoundaries(time_step, omega=omega),
               state_equation=nothing,
               callbacks=CallbackSet(info_callback, saving_callback),
-              time_integration_algorithm=SymplecticEuler(), dt=time_step)#, maxiters=1)
+              time_integration_algorithm=SymplecticEuler(), dt=time_step)
