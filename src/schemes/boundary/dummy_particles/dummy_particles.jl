@@ -750,7 +750,6 @@ function calculate_predicted_density(system, boundary_model, ::PressureBoundarie
     (; predicted_density, density, time_step) = boundary_model.cache
 
     predicted_density .= density
-    #println(density)
     foreach_system(semi) do neighbor_system
         u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
         system_coords = current_coordinates(u, system)
@@ -770,7 +769,6 @@ function calculate_predicted_density(system, boundary_model, ::PressureBoundarie
                                             dot(advection_velocity_diff, grad_kernel)
         end
     end
-    #println(predicted_density)
 end
 
 
@@ -879,13 +877,6 @@ function pressure_update(system, boundary_model, ::PressureBoundaries, avg_densi
         end
     end
     avg_density_error /= nparticles(system)
-    #println(source_term[1:100])
-    #println(sum(source_term)/nparticles(system))
-    #println(minimum(source_term))
-    #println(maximum(source_term))
-    #println(pressure[1:100])
-    #println(sum(pressure)/nparticles(system))
-    #println(maximum(pressure))
 end
 
 @propagate_inbounds function predicted_velocity(system::BoundarySystem, particle)
