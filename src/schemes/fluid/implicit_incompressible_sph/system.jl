@@ -329,7 +329,7 @@ function calculate_d_ii_values(system::ImplicitIncompressibleSPHSystem, v, u,
             # Calculate d_ii with eq. 9 in Ihmsen et al. (2013)
             for i in 1:ndims(system)
                 d_ii_array[i,
-                particle] += calculate_d_ii( neighbor_system, m_b, rho_a,
+                particle] += calculate_d_ii(neighbor_system, m_b, rho_a,
                                 grad_kernel[i],
                                 time_step)
             end
@@ -470,7 +470,7 @@ function initialize_pressure(system::ImplicitIncompressibleSPHSystem, semi)
 end
 
 function pressure_solve_iteration(system, avg_density_error, u, u_ode, semi)
-    foreach_system(semi) do system
+    foreach_system(semi) do system #can be removed, only calculated once for fluid particles
         calculate_sum_d_ij_pj(system, u, u_ode, semi)
     end
     foreach_system(semi) do system
@@ -487,6 +487,7 @@ function calculate_sum_d_ij_pj(system::ImplicitIncompressibleSPHSystem, u, u_ode
     set_zero!(sum_d_ij_pj)
 
     foreach_system(semi) do neighbor_system
+        # dispatch after PressureZeroing & PressureMirroring or PressureBoundaries
         calculate_sum_d_ij_pj(system, neighbor_system, u, u_ode, semi)
     end
 end
@@ -631,6 +632,12 @@ function calculate_d_ii(neighbor_system, boundary_model::BoundaryModelDummyParti
                           rho_a, grad_kernel, time_step)
 end
 
+# Calculates a summand for the calculation of the d_ii values (pressure zeroing and pressure boundaries)
+function calculate_d_ii(neighbor_system, boundary_model, density_calculator, m_b,
+    rho_a, grad_kernel, time_step)
+return -time_step^2 * m_b / rho_a^2 * grad_kernel
+end
+
 # Calculates a summand for the calculation of the d_ii values (pressure mirroring)
 function calculate_d_ii(neighbor_system, boundary_model, density_calculator::PressureMirroring, m_b,
                         rho_a, grad_kernel, time_step)
@@ -643,12 +650,6 @@ function calculate_d_ii(neighbor_system, boundary_model, density_calculator::Pre
     # Therefore, the diagonal element in the system now appears with a factor 2,
     # whereas the entry `ij` disappears from the system.
     return -time_step^2 * 2 * m_b / rho_a^2 * grad_kernel
-end
-
-# Calculates a summand for the calculation of the d_ii values (pressure zeroing)
-function calculate_d_ii(neighbor_system, boundary_model, density_calculator, m_b,
-                        rho_a, grad_kernel, time_step)
-    return -time_step^2 * m_b / rho_a^2 * grad_kernel
 end
 
 # Calculates the d_ij value for a particle i and his neighbor j from the equation 9 in 'IHMSEN et al'
