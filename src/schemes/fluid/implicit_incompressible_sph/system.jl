@@ -441,20 +441,20 @@ end
 # Calculate pressure values with iterative pressure solver (relaxed jacobi scheme)
 function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
     (; pressure, reference_density, max_error, min_iterations, max_iterations) = system
+    num_particles = 0
     foreach_system(semi) do system
         initialize_pressure(system, semi)
+        num_particles += nparticles(system)
     end
 
-    avg_density_error = 0.0
     l = 1
     terminate = false
     # Convert relative error in percent to absolute error
     eta = max_error * 0.01 * reference_density
     while (!terminate)
         @trixi_timeit timer() "pressure solver iteration" pressure_solve_iteration(system,
-                                                                                avg_density_error,
                                                                                 u, u_ode,
-                                                                                semi)
+                                                                                semi, num_particles)
         # Update termination condition
         terminate = (avg_density_error <= eta && l >= min_iterations) || l >= max_iterations
         l += 1
@@ -469,16 +469,18 @@ function initialize_pressure(system::ImplicitIncompressibleSPHSystem, semi)
     end
 end
 
-function pressure_solve_iteration(system, avg_density_error, u, u_ode, semi)
+function pressure_solve_iteration(system, u, u_ode, semi, num_particles)
     foreach_system(semi) do system #can be removed, only calculated once for fluid particles
         calculate_sum_d_ij_pj(system, u, u_ode, semi)
     end
     foreach_system(semi) do system
         calculate_sum_term_values(system, u, u_ode, semi)
     end
+    density_error = 0.0
     foreach_system(semi) do system
-        pressure_update(system, avg_density_error, u, u_ode, semi)
+        density_error += pressure_update(system, avg_density_error, u, u_ode, semi)
     end
+    return avg_density_error / num_particles
 end
 
 function calculate_sum_d_ij_pj(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi)
@@ -575,10 +577,10 @@ function calculate_sum_term_values(system::ImplicitIncompressibleSPHSystem, u, u
     end
 end
 
-function pressure_update(system::ImplicitIncompressibleSPHSystem, avg_density_error, u, u_ode, semi)
+function pressure_update(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi)
     (; pressure, reference_density, a_ii, sum_term, omega, time_step) = system
     # Update the pressure values
-    rhs_array=zero(a_ii)
+    density_error = 0.0
     @threaded semi for particle in eachparticle(system)
         # Removing instabilities by avoiding to divide by very low values of `a_ii`.
         # This is not mentioned in the paper but done in SPlisHSPlasH as well.
@@ -595,10 +597,10 @@ function pressure_update(system::ImplicitIncompressibleSPHSystem, avg_density_er
             new_density = a_ii[particle]*pressure[particle] + sum_term[particle] -
                           calculate_source_term(system, particle) +
                           reference_density
-            avg_density_error += (new_density - reference_density)
+            density_error += (new_density - reference_density)
         end
     end
-    avg_density_error /= nparticles(system)
+    return density_error
 end
 
 @propagate_inbounds function predicted_velocity(system::ImplicitIncompressibleSPHSystem,

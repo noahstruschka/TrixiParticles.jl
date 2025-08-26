@@ -847,14 +847,14 @@ function pressure_update(system::BoundarySystem, avg_density_error, u, u_ode, se
 end
 
 function pressure_update(system, boundary_model, density_calculator, avg_density_error, u, u_ode, semi)
-    return system
+    return 0
 end
 
 function pressure_update(system, boundary_model, ::PressureBoundaries, avg_density_error, u, u_ode, semi)
     (; reference_density, a_ii, sum_term, omega) = boundary_model.cache
     (; pressure) = boundary_model
     # Update the pressure values
-    source_term = zeros(nparticles(system))
+    avg_density_error = 0.0
     @threaded semi for particle in eachparticle(system)
         source_term[particle] = calculate_source_term(system, particle)
         # Removing instabilities by avoiding to divide by very low values of `a_ii`.
@@ -877,6 +877,7 @@ function pressure_update(system, boundary_model, ::PressureBoundaries, avg_densi
         end
     end
     avg_density_error /= nparticles(system)
+    return avg_density_error
 end
 
 @propagate_inbounds function predicted_velocity(system::BoundarySystem, particle)
