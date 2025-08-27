@@ -840,23 +840,22 @@ function calculate_sum_term_values(system, boundary_model, ::PressureBoundaries,
 end
 
 
-function pressure_update(system::BoundarySystem, avg_density_error, u, u_ode, semi)
+function pressure_update(system::BoundarySystem, u, u_ode, semi)
     (; boundary_model) = system
     (; density_calculator) = boundary_model
-    return pressure_update(system, boundary_model, density_calculator, avg_density_error, u, u_ode, semi)
+    return pressure_update(system, boundary_model, density_calculator, u, u_ode, semi)
 end
 
-function pressure_update(system, boundary_model, density_calculator, avg_density_error, u, u_ode, semi)
+function pressure_update(system, boundary_model, density_calculator, u, u_ode, semi)
     return 0
 end
 
-function pressure_update(system, boundary_model, ::PressureBoundaries, avg_density_error, u, u_ode, semi)
+function pressure_update(system, boundary_model, ::PressureBoundaries, u, u_ode, semi)
     (; reference_density, a_ii, sum_term, omega) = boundary_model.cache
     (; pressure) = boundary_model
     # Update the pressure values
     avg_density_error = 0.0
     @threaded semi for particle in eachparticle(system)
-        source_term[particle] = calculate_source_term(system, particle)
         # Removing instabilities by avoiding to divide by very low values of `a_ii`.
         # This is not mentioned in the paper but done in SPlisHSPlasH as well.
         if abs(a_ii[particle]) > 1.0e-9

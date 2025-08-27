@@ -110,6 +110,7 @@ callbacks = CallbackSet(info_callback, saving_callback, stepsize_callback, extra
                         density_reinit_cb, saving_paper)
 
 time_integration_algorithm = CarpenterKennedy2N54(williamson_condition=false)
+time_step = 1.0
 sol = solve(ode, time_integration_algorithm,
-            dt=1.0, # This is overwritten by the stepsize callback
+            dt=time_step, # This is overwritten by the stepsize callback
             save_everystep=false, callback=callbacks)

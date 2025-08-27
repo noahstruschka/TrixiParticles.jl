@@ -8,8 +8,8 @@ trixi_include(@__MODULE__,
 
 
 # Change smoothing kernel and length
-smoothing_length = 1.6 * fluid_particle_spacing
-smoothing_kernel = WendlandC2Kernel{2}()
+smoothing_length = 1.2 * fluid_particle_spacing
+smoothing_kernel = SchoenbergCubicSplineKernel{2}()
 
 # Calculate kinematic viscosity for the viscosity model
 nu = 0.02 * smoothing_length * sound_speed / 8
@@ -17,7 +17,7 @@ viscosity = ViscosityAdami(; nu)
 
 # Use IISPH as fluid system
 time_step = 1e-3
-omega = 0.5
+omega = 0.4
 IISPH_system = ImplicitIncompressibleSPHSystem(tank.fluid, smoothing_kernel,
                                                smoothing_length, fluid_density,
                                                viscosity=ViscosityAdami(nu=nu),
@@ -31,8 +31,11 @@ IISPH_system = ImplicitIncompressibleSPHSystem(tank.fluid, smoothing_kernel,
 trixi_include(@__MODULE__,
               joinpath(examples_dir(), "fluid", "dam_break_2d.jl"),
               viscosity=ViscosityAdami(nu=nu),
+              smoothing_kernel=smoothing_kernel, smoothing_length=smoothing_length,
               fluid_system=IISPH_system,
               boundary_density_calculator=PressureBoundaries(time_step, omega=omega),
               state_equation=nothing,
               callbacks=CallbackSet(info_callback, saving_callback),
-              time_integration_algorithm=SymplecticEuler(), dt=time_step)
+              time_integration_algorithm=SymplecticEuler(), time_step=time_step, )
+
+maximum(IISPH_system.density)
