@@ -37,5 +37,3 @@ trixi_include(@__MODULE__,
               state_equation=nothing,
               callbacks=CallbackSet(info_callback, saving_callback),
               time_integration_algorithm=SymplecticEuler(), time_step=time_step, )
-
-maximum(IISPH_system.density)
