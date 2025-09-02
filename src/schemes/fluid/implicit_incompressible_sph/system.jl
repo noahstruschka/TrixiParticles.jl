@@ -225,9 +225,9 @@ function update_implicit_sph!(semi, v_ode, u_ode, t)
     if !any(system -> system isa ImplicitIncompressibleSPHSystem, semi.systems)
         return semi
     end
-    predict_advection(semi, v_ode, u_ode, t)
+    @trixi_timeit timer() "predict advection" predict_advection(semi, v_ode, u_ode, t)
 
-    pressure_solve(semi, v_ode, u_ode, t)
+    @trixi_timeit timer() "pressure solve" pressure_solve(semi, v_ode, u_ode, t)
 
     return semi
 end
