@@ -220,29 +220,37 @@ function update_quantities!(system::ImplicitIncompressibleSPHSystem, v, u,
     return system
 end
 
-# Calculates the pressure values by solving a linear system with a relaxed Jacobi scheme
-function update_pressure!(system::ImplicitIncompressibleSPHSystem, v, u,
-                            v_ode, u_ode, semi, t)
-    @trixi_timeit timer() "predict advection" predict_advection(system, v, u, v_ode, u_ode,
-                                                                semi, t)
+function update_implicit_sph!(semi, v_ode, u_ode, t)
+    # This check is performed statically by the compiler and has no overhead
+    if !any(system -> system isa ImplicitIncompressibleSPHSystem, semi.systems)
+        return semi
+    end
+    predict_advection(semi, v_ode, u_ode, t)
 
-    @trixi_timeit timer() "pressure solver" pressure_solve(system, v, u, v_ode, u_ode, semi,
-                                                           t)
+    pressure_solve(semi, v_ode, u_ode, t)
 
-    return system
+    return semi
 end
 
-function predict_advection(system, v, u, v_ode, u_ode, semi, t)
+function predict_advection(semi, v_ode, u_ode, t)
     foreach_system(semi) do system
+        v = wrap_v(v_ode, system, semi)
+        u = wrap_u(u_ode, system, semi)
         calculate_predicted_velocity(system, v, u, v_ode, u_ode, semi, t)
     end
     foreach_system(semi) do system
+        v = wrap_v(v_ode, system, semi)
+        u = wrap_u(u_ode, system, semi)
         calculate_d_ii_values(system, v, u, v_ode, u_ode, semi, t)
     end
     foreach_system(semi) do system
+        v = wrap_v(v_ode, system, semi)
+        u = wrap_u(u_ode, system, semi)
         calculate_diagonal_elements(system, v, u, v_ode, u_ode, semi, t)
     end
     foreach_system(semi) do system
+        v = wrap_v(v_ode, system, semi)
+        u = wrap_u(u_ode, system, semi)
         calculate_predicted_density(system, v, u, v_ode, u_ode, semi, t)
     end
 end
@@ -439,25 +447,37 @@ end
 
 
 # Calculate pressure values with iterative pressure solver (relaxed jacobi scheme)
-function pressure_solve(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
-    (; pressure, reference_density, max_error, min_iterations, max_iterations) = system
+function pressure_solve(semi, v_ode, u_ode, t)
     num_particles = 0
     foreach_system(semi) do system
         initialize_pressure(system, semi)
         num_particles += nparticles(system)
     end
 
+    # Determine global iteration and error constraints across all iisph systems
+    min_iters = 1
+    max_iters = 10000
+    max_err = 100.0
+    foreach_system(semi) do system
+        if system isa ImplicitIncompressibleSPHSystem
+            (; max_error, min_iterations, max_iterations) = system
+            min_iters = max(min_iterations, min_iters)
+            max_iters = min(max_iterations, max_iters)
+            max_err = min(max_error, max_err)
+        end
+    end
+
+    # Convert relative error in percent to absolute error
+    eta = max_err * 0.01
     l = 1
     terminate = false
-    # Convert relative error in percent to absolute error
-    eta = max_error * 0.01 * reference_density
     while (!terminate)
         @trixi_timeit timer() "pressure solver iteration" begin
-            avg_density_error = pressure_solve_iteration(system, u, u_ode,
-                                                        semi, num_particles)
+            avg_density_error = pressure_solve_iteration(semi, u_ode,
+                                                         num_particles)
 
             # Update termination condition
-            terminate = (avg_density_error <= eta && l >= min_iterations) || l >= max_iterations
+            terminate = (avg_density_error <= eta && l >= min_iters) || l >= max_iters
             l += 1
         end
     end
@@ -471,15 +491,18 @@ function initialize_pressure(system::ImplicitIncompressibleSPHSystem, semi)
     end
 end
 
-function pressure_solve_iteration(system, u, u_ode, semi, num_particles)
+function pressure_solve_iteration(semi, u_ode, num_particles)
     foreach_system(semi) do system #can be removed, only calculated once for fluid particles
+        u = wrap_u(u_ode, system, semi)
         calculate_sum_d_ij_pj(system, u, u_ode, semi)
     end
     foreach_system(semi) do system
+        u = wrap_u(u_ode, system, semi)
         calculate_sum_term_values(system, u, u_ode, semi)
     end
     density_error = 0.0
     foreach_system(semi) do system
+        u = wrap_u(u_ode, system, semi)
         density_error += pressure_update(system, u, u_ode, semi)
     end
     return density_error / num_particles
@@ -602,7 +625,7 @@ function pressure_update(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi
             density_error += (new_density - reference_density)
         end
     end
-    return density_error
+    return density_error / reference_density
 end
 
 @propagate_inbounds function predicted_velocity(system::ImplicitIncompressibleSPHSystem,

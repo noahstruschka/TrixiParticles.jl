@@ -875,8 +875,7 @@ function pressure_update(system, boundary_model, ::PressureBoundaries, u, u_ode,
             avg_density_error += (new_density - reference_density)
         end
     end
-    avg_density_error /= nparticles(system)
-    return avg_density_error
+    return avg_density_error / reference_density
 end
 
 @propagate_inbounds function predicted_velocity(system::BoundarySystem, particle)
