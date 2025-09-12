@@ -536,7 +536,7 @@ function pressure_update(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi
         if abs(a_ii[particle]) > 1.0e-9
             pressure[particle] = max((1-omega) * pressure[particle] +
                                      omega / a_ii[particle] *
-                                     (reference_density - predicted_density[particle] -
+                                     (calculate_source_term(system, particle) -
                                       sum_term[particle]), 0)
         else
             pressure[particle] = zero(pressure[particle])
@@ -544,7 +544,7 @@ function pressure_update(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi
         # Calculate the average density error for the termination condition
         if (pressure[particle] != 0.0)
             new_density = a_ii[particle]*pressure[particle] + sum_term[particle] -
-                          (reference_density - predicted_density[particle]) +
+                          (calculate_source_term(system, particle)) +
                           reference_density
             avg_density_error += (new_density - reference_density)
         end
@@ -645,4 +645,9 @@ function calculate_sum_term(system, neighbor_system::BoundarySystem, particle, n
     # Equation 16 of Ihmsen et al. (2013):
     # m_j * sum_k d_ik * p_k * ∇W_ij
     return m_j * dot(sum_dik_pk, grad_kernel)
+end
+
+function calculate_source_term(system::ImplicitIncompressibleSPHSystem, particle)
+    (;reference_density, predicted_density) = system
+    return reference_density - predicted_density[particle]
 end
