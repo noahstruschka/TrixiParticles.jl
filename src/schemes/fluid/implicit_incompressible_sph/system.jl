@@ -246,7 +246,7 @@ function predict_advection(semi, v_ode, u_ode, t)
     foreach_system(semi) do system
         v = wrap_v(v_ode, system, semi)
         u = wrap_u(u_ode, system, semi)
-        calculate_diagonal_elements!(system, v, u, v_ode, u_ode, semi)
+        calculate_diagonal_elements!(system, v, u, v_ode, u_ode, semi, t)
     end
 
     # Calculate the predicted density (with the continuity equation and predicted velocities)
@@ -354,25 +354,25 @@ function calculate_d_ii_values(system, v, u, v_ode, u_ode, semi, t)
     return system
 end
 
-function calculate_diagonal_elements!(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi)
+function calculate_diagonal_elements!(system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode, semi, t)
     (; a_ii, time_step) = system
 
     set_zero!(a_ii)
 
     foreach_system(semi) do neighbor_system
         calculate_diagonal_elements!(a_ii, system, neighbor_system, v, u, v_ode, u_ode,
-                                     semi, time_step)
+                                     semi, t, time_step)
     end
 end
 
-function calculate_diagonal_elements!(system, v, u, v_ode, u_ode, semi)
+function calculate_diagonal_elements!(system, v, u, v_ode, u_ode, semi, t)
     return system
 end
 
 # Calculation of the contribution of the fluid particles to the diagonal elements (a_ii-values)
 # according to eq. 12 in Ihmsen et al. (2013).
 function calculate_diagonal_elements!(a_ii, system, neighbor_system, v, u, v_ode, u_ode,
-                                      semi, time_step)
+                                      semi, t, time_step)
     u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
     system_coords = current_coordinates(u, system)
     neighbor_system_coords = current_coordinates(u_neighbor_system, neighbor_system)
@@ -402,7 +402,7 @@ end
 # Calculation of the contribution of the boundary particles the diagonal elements (a_ii-values)
 # according to Ihmsen et al. (2013)
 function calculate_diagonal_elements!(a_ii, system, neighbor_system::BoundarySystem, v, u,
-                                      v_ode, u_ode, semi, time_step)
+                                      v_ode, u_ode, semi, t, time_step)
     u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
     system_coords = current_coordinates(u, system)
     neighbor_system_coords = current_coordinates(u_neighbor_system, neighbor_system)
@@ -508,7 +508,7 @@ function pressure_solve_iteration(semi, u_ode, v_ode, t)
     end
 
     foreach_system(semi) do system
-    u = wrap_u(u_ode, system, semi)
+        u = wrap_u(u_ode, system, semi)
         calculate_sum_term_values(system, u, u_ode, semi)
     end
 
@@ -551,7 +551,7 @@ function calculate_sum_d_ij_pj(system, u, u_ode, semi)
 end
 
 # Calculate the large sum in eq. 13 of Ihmsen et al. (2013) for each particle (as `sum_term`)
-function calculate_sum_term_values(system, u, u_ode, semi)
+function calculate_sum_term_values(system::ImplicitIncompressibleSPHSystem, u, u_ode, semi)
     (; sum_term, pressure, time_step) = system
 
     set_zero!(sum_term)
