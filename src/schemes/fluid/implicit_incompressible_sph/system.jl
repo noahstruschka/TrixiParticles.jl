@@ -215,7 +215,7 @@ function update_quantities!(system::ImplicitIncompressibleSPHSystem, v, u,
 end
 
 function predict_advection(system, v, u, v_ode, u_ode, semi, t)
-    (; density, pressure) = system
+    (; density) = system
 
     # Compute density by kernel summation
     summation_density!(system, semi, u, u_ode, density)
@@ -313,7 +313,8 @@ function calculate_predicted_velocity_and_d_ii_values(system, v, u, v_ode, u_ode
     end
 end
 
-function initialize_pressure(pressure, system, semi)
+function initialize_pressure(system, semi)
+    (; pressure) = system
     # Set initial pressure (p_0) to a half of the current pressure value
     @threaded semi for particle in each_integrated_particle(system)
         pressure[particle] = pressure[particle] / 2
