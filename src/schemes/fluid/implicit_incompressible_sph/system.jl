@@ -236,15 +236,9 @@ function predict_advection!(semi, v_ode, u_ode, t)
     foreach_system(semi) do system
         v = wrap_v(v_ode, system, semi)
         u = wrap_u(u_ode, system, semi)
-        calculate_diagonal_elements!(system, v, u, v_ode, u_ode, semi)
+        calculate_diagonal_elements_and_predicted_density!(system, v, u, v_ode, u_ode, semi)
     end
-#=
-    foreach_system(semi) do system
-        v = wrap_v(v_ode, system, semi)
-        u = wrap_u(u_ode, system, semi)
-        calculate_predicted_density!(system, v, u, v_ode, u_ode, semi, t)
-    end
-=#
+
     return semi
 end
 
@@ -252,6 +246,8 @@ function calculate_predicted_velocity_and_d_ii_values!(system, v, u, v_ode, u_od
     return system
 end
 
+# Calculation of the predicted velocity and the d_ii-values according to eq. 12 in
+# Ihmsen et al. (2013).
 function calculate_predicted_velocity_and_d_ii_values!(system::ImplicitIncompressibleSPHSystem,
                                                        v, u, v_ode, u_ode, semi, t)
     (; advection_velocity, time_step) = system
@@ -313,11 +309,11 @@ function calculate_predicted_velocity_and_d_ii_values!(system::ImplicitIncompres
     return system
 end
 
-function calculate_diagonal_elements!(system, v, u, v_ode, u_ode, semi)
+function  calculate_diagonal_elements_and_predicted_density!(system, v, u, v_ode, u_ode, semi)
     return system
 end
 
-function calculate_diagonal_elements!(system::ImplicitIncompressibleSPHSystem, v, u, v_ode,
+function  calculate_diagonal_elements_and_predicted_density!(system::ImplicitIncompressibleSPHSystem, v, u, v_ode,
                                       u_ode, semi)
     (; a_ii, density, predicted_density, time_step) = system
 
@@ -325,15 +321,16 @@ function calculate_diagonal_elements!(system::ImplicitIncompressibleSPHSystem, v
     predicted_density .= density
 
     foreach_system(semi) do neighbor_system
-        calculate_diagonal_elements!(a_ii, predicted_density, system, neighbor_system, v, u, v_ode, u_ode,
-                                     semi, time_step)
+         calculate_diagonal_elements_and_predicted_density(a_ii, predicted_density, system, neighbor_system, v, u, v_ode, u_ode,
+                                                            semi, time_step)
     end
 end
 
 # Calculation of the contribution of the fluid particles to the diagonal elements (a_ii-values)
-# according to eq. 12 in Ihmsen et al. (2013).
-function calculate_diagonal_elements!(a_ii, predicted_density, system, neighbor_system, v, u, v_ode, u_ode,
-                                      semi, time_step)
+# according to eq. 12 and the predicted density (\rho_adv) according to eq. 4 in
+# Ihmsen et al. (2013).
+function  calculate_diagonal_elements_and_predicted_density(a_ii, predicted_density, system, neighbor_system::ImplicitIncompressibleSPHSystem, v, u, v_ode, u_ode,
+                                                            semi, time_step)
     u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
     system_coords = current_coordinates(u, system)
     neighbor_system_coords = current_coordinates(u_neighbor_system, neighbor_system)
@@ -360,18 +357,20 @@ function calculate_diagonal_elements!(a_ii, predicted_density, system, neighbor_
         advection_velocity_diff = predicted_velocity(system, particle) -
                                     predicted_velocity(neighbor_system, neighbor)
         m_b = hydrodynamic_mass(neighbor_system, neighbor)
-       # grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
+
         # Compute \rho_adv in eq. 4 in Ihmsen et al. (2013)
         predicted_density[particle] += time_step * m_b *
                                         dot(advection_velocity_diff, grad_kernel)
     end
+
+    return system
 end
 
-# Calculation of the contribution of the Abstractboundary particles the diagonal elements (a_ii-values)
-# according to Ihmsen et al. (2013)
-function calculate_diagonal_elements!(a_ii, predicted_density, system, neighbor_system::AbstractBoundarySystem,
-                                      v, u,
-                                      v_ode, u_ode, semi, time_step)
+# Calculation of the contribution of the Abstractboundary particles to the diagonal elements
+# (a_ii-values) according to eq. 12 and the predicted density (rho^adv) according to eq. 4
+# in Ihmsen et al. (2013).
+function  calculate_diagonal_elements_and_predicted_density(a_ii, predicted_density, system, neighbor_system::AbstractBoundarySystem,
+                                      v, u, v_ode, u_ode, semi, time_step)
     u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
     system_coords = current_coordinates(u, system)
     neighbor_system_coords = current_coordinates(u_neighbor_system, neighbor_system)
@@ -392,52 +391,20 @@ function calculate_diagonal_elements!(a_ii, predicted_density, system, neighbor_
         advection_velocity_diff = predicted_velocity(system, particle) -
                                     predicted_velocity(neighbor_system, neighbor)
         m_b = hydrodynamic_mass(neighbor_system, neighbor)
-        #grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
+
         # Compute \rho_adv in eq. 4 in Ihmsen et al. (2013)
         predicted_density[particle] += time_step * m_b *
                                         dot(advection_velocity_diff, grad_kernel)
     end
-end
 
-function calculate_predicted_density!(system, v, u, v_ode, u_ode, semi, t)
     return system
-end
-
-function calculate_predicted_density!(system::ImplicitIncompressibleSPHSystem, v, u, v_ode,
-                                      u_ode, semi, t)
-    (; density, predicted_density, time_step) = system
-
-    predicted_density .= density
-
-    # Calculate the predicted density (with the continuity equation and predicted velocities)
-    foreach_system(semi) do neighbor_system
-        u_neighbor_system = wrap_u(u_ode, neighbor_system, semi)
-        system_coords = current_coordinates(u, system)
-        neighbor_system_coords = current_coordinates(u_neighbor_system, neighbor_system)
-
-        foreach_point_neighbor(system, neighbor_system, system_coords,
-                               neighbor_system_coords, semi,
-                               points=each_integrated_particle(system)) do particle,
-                                                                           neighbor,
-                                                                           pos_diff,
-                                                                           distance
-            # Calculate the predicted velocity differences
-            advection_velocity_diff = predicted_velocity(system, particle) -
-                                      predicted_velocity(neighbor_system, neighbor)
-            m_b = hydrodynamic_mass(neighbor_system, neighbor)
-            grad_kernel = smoothing_kernel_grad(system, pos_diff, distance, particle)
-            # Compute \rho_adv in eq. 4 in Ihmsen et al. (2013)
-            predicted_density[particle] += time_step * m_b *
-                                           dot(advection_velocity_diff, grad_kernel)
-        end
-    end
 end
 
 # Calculate pressure values with iterative pressure solver (relaxed Jacobi scheme)
 function pressure_solve!(semi, v_ode, u_ode, t)
- #   foreach_system(semi) do system
-  #      initialize_pressure!(system, semi)
-  #  end
+    foreach_system(semi) do system
+        initialize_pressure!(system, semi)
+    end
 
     # Determine global iteration and error constraints across all iisph systems
     min_iters = 1
